@@ -1,11 +1,11 @@
-PRO massloss_2, basename, fromsaved=fromsaved, ps=ps
+PRO massloss_2, basename, fromsaved=fromsaved, ps=ps, readonly=readonly, justplot=justplot
 
 ;Plotting setup
   plotsym, 0, .9, /fill
   set_plot, 'x'
   if (keyword_set(ps)) then begin
      !p.font=0
-     !p.charsize=1.5
+     !p.charsize=1.3
      !p.charthick=5
      !p.thick=8
      !x.thick=5
@@ -18,15 +18,26 @@ PRO massloss_2, basename, fromsaved=fromsaved, ps=ps
      wset, 1
   endelse
 !p.multi=0
+
+
+if (~keyword_set(justplot)) then begin
 ;  !p.multi=[0,2,1]
 ;  !p.multi=[0,3,2]
 
-   timesteps = [0, 10, 20, 30, 40, 50, 100, 150, 200]
+;   timesteps = [0, 10, 20, 30, 40, 50, 100, 150, 200]
+;timesteps=25
+timesteps = indgen(22)*10
+timesteps=[timesteps,25, 22, 27, 35]
+timesteps=timesteps[sort(timesteps)]
+
 
    ;Do all file I/O first
    for tt = 0, n_elements(timesteps) -1 do begin
       openfile = basename+'.'+strn(timesteps[tt], length=4, padtype=1, padch='0')
+
       if (~keyword_set(fromsaved)) then begin
+         if(~file_test(openfile+'.sav')) then begin
+      print, openfile
          densfile = openfile+'_density.txt'
          posfile = openfile+'_pos.txt'
          velfile = openfile+'_velocity.txt'
@@ -49,7 +60,12 @@ PRO massloss_2, basename, fromsaved=fromsaved, ps=ps
 
          save, /variables, filename=openfile+'.sav'
       endif
+      endif
    endfor
+
+   if (keyword_set(readonly)) then begin
+      stop
+   endif
 
    ;Parameter setup
    rp = 1.5d10
@@ -60,23 +76,28 @@ PRO massloss_2, basename, fromsaved=fromsaved, ps=ps
    radii = [rroche, 5.*rp]
 ;   radii = [rreset, rp, rroche, rint] ;Be sure to update!!
 
+
+
+
+   mshell = fltarr(n_elements(radii), n_elements(timesteps))
+   mshellave = fltarr(n_elements(radii), n_elements(timesteps))
+   mbox = fltarr(n_elements(radii), n_elements(timesteps))
+
+   tottimes = n_elements(timesteps)
    dt = 5d3                     ;Be sure to update!!
-   times = timesteps * dt
-   mshell = fltarr(n_elements(radii), n_elements(times))
-   mshellave = fltarr(n_elements(radii), n_elements(times))
-   mbox = fltarr(n_elements(radii), n_elements(times))
 
-   tottimes = n_elements(times)
-
-   for tt = 0, tottimes -1 do begin
-      openfile = basename+'.'+strn(timesteps[tt], length=4, padtype=1, padch='0')
-   endfor
+   ;; for tt = 0, tottimes -1 do begin
+   ;;    openfile = basename+'.'+strn(timesteps[tt], length=4, padtype=1, padch='0')
+   ;; endfor
 
    for ts = 0, tottimes -1 do begin
+
       openfile = basename+'.'+strn(timesteps[ts], length=4, padtype=1, padch='0')
       restore, openfile+'.sav'
       radii = [rroche, 5.*rp]
-      timesteps = [0, 10, 20, 30, 40, 50, 100, 150, 200]
+      timesteps = indgen(22)*10
+      timesteps=[timesteps,25, 22, 27, 35]
+      timesteps=timesteps[sort(timesteps)]
 
       rad2 = fltarr(n, n, n)
       rad2 = (x^2. + y^2. + z^2.)
@@ -140,17 +161,34 @@ PRO massloss_2, basename, fromsaved=fromsaved, ps=ps
    ;;    device, /close
    ;; endif
 
+endif else begin
+restore, '/Users/anjalitripathi/revised_mu_hiresmassloss_2_'+basename+'.sav'
+endelse
+
    if (keyword_set(ps)) then begin
       set_plot, 'ps'
-      device, filen='/Users/anjalitripathi/revised_mu_hires_massloss_rates_2panel.eps', xsize=10.5, ysize=7.5, /inches, /encapsulated
+      !y.charsize = 0.8
+      device, filen='/Volumes/Extra/RevisedOutput/revised_mu_hires_massloss_rates_2panel_flux.ps', xsize=10.1, ysize=8,  /inches;,  /landscape;, /encapsulated,
+;xsize=10.7, ysize=7.5, /inches, 
 ;   !p.POSITION=[.1,.1,.9,.9] 
    endif else begin
       wset, 0
    endelse
 
+if (~keyword_set(justplot)) then begin
    radii = [rroche, 5.*rp]
+   ttemp = indgen(22)*10
+   times = ttemp * dt
+   times[3:*] = (ttemp[3:*]-10)*1d4 - 5d3
+   times = [times, 1.15e5, 1.45e5, 1.65e5, 2.45e5]
+   times=times[sort(times)]
+endif
+print, times      
+
    pflag = 0
-   colors=[ "red", "orange", "goldenrod", "green", "blue", "purple"]
+
+   colors=["pbg6", "pbg8", "ryb3"] 
+;   colors=[ "red", "orange", "goldenrod", "green", "blue", "purple"]
 
    restore, '/Users/anjalitripathi/Atmospheric-Athena/bin/wind_correctmu.sav' ; Variables rr, rd, rv, rT, rnf, rtau
 ;Columns:  R(10^10 cm)  rho(10^-15 g/cm^3)  v(10^6 cm/s)  T(10^4 K)
@@ -163,19 +201,22 @@ PRO massloss_2, basename, fromsaved=fromsaved, ps=ps
 ;      if (pflag eq 0) then begin
       plotsym, 0, .9, /fill
       if (rr eq 0) then begin
-         plot, times, mshell[rr,*], xstyle = 2, ystyle = 2, xtitle='Time [s]', ytitle='Instantaneous mass loss [g/s]', /nodata, yra=[0, 2.5e11];, title='Radius = '+ string(radii[rr]/rp, format=' (F5.3)') + ' Rp'
+         plot, times, mshell[rr,*], xstyle = 2, ystyle = 10, xtitle='Time [s]', ytitle='Instantaneous mass loss [g/s]', /nodata, yra=[0, 2.5e11];, title='Radius = '+ string(radii[rr]/rp, format=' (F5.3)') + ' Rp'
 ;         pflag = 1
 ;      endif
       endif
-      oplot, times, mshell[rr,*], psym = 6, color=fsc_color(colors[rr])
-      oplot, times, mshell[rr,*], linestyle=0, color=fsc_color(colors[rr])
-      oplot, times, mshellave[rr,*], psym = 5, color=fsc_color(colors[rr]), linestyle=1
-      oplot, times, mshellave[rr,*], linestyle=1, color=fsc_color(colors[rr])
-      oplot, times, mbox[rr,*], psym = 2, color=fsc_color(colors[rr])
-      oplot, times, mbox[rr,*], linestyle = 2, color=fsc_color(colors[rr])
-      al_legend,['1D estimate','Sphere','Mean', 'Box'],linestyle = [5, 0, 1, 2], /right_legend, /bottom, box=0, charsize=1.2
-      al_legend,['','', ''],psym=[6, 5, 2], /right_legend, /bottom, box=0, charsize=1.2
-      xyouts, 7e5, 6e10-rr*1e10, 'Radius = '+ string(radii[rr]/rp, format=' (F3.1)') + ' Rp', color=fsc_color(colors[rr]), /data
+;      oplot, times, mshell[rr,*], psym = 6, color=fsc_color(colors[rr])
+;      oplot, times, mshell[rr,*], linestyle=0, color=fsc_color(colors[rr])
+      oplot, times, mshellave[rr,*], psym = 5, color=fsc_color(colors[rr], /brewer), linestyle=1
+      oplot, times, mshellave[rr,*], linestyle=1, color=fsc_color(colors[rr], /brewer)
+;      oplot, times, mbox[rr,*], psym = 2, color=fsc_color(colors[rr], /brewer)
+      oplot, times, mbox[rr,*], linestyle = 2, color=fsc_color(colors[rr], /brewer)
+;      al_legend,['1D estimate','Sphere','Mean', 'Box'],linestyle = [5, 0, 1, 2], /right_legend, /bottom, box=0, charsize=1.2
+;      al_legend,['','', ''],psym=[6, 5, 2], /right_legend, /bottom, box=0, charsize=1.2
+      al_legend,['Box', 'Mean', '1D estimate'],linestyle = [2, 1, 5], /right_legend, /bottom, box=0, charsize=1.2
+      al_legend,['','', ''],psym=[ 3, 5, 3], /right_legend, /bottom, box=0, charsize=1.2
+
+      xyouts, 1.65e6, 4e10-rr*1e10, 'Radius = '+ string(radii[rr]/rp, format=' (F3.1)') + ' Rp', color=fsc_color(colors[rr], /brewer), /data, charsize=1.2
 
       ruthnear = where(abs(radii[rr] - rruth) eq min(abs(radii[rr]-rruth)))
       mruth = 4. * !dpi * rruth[ruthnear]^2. * druth[ruthnear] * vruth[ruthnear]
@@ -184,7 +225,15 @@ PRO massloss_2, basename, fromsaved=fromsaved, ps=ps
       oplot, [min(times)-1, max(times)+1], .31*[mruth, mruth], linestyle=5, color=fsc_color("gray")
       print, rr
    endfor
+
+   ntimes = findgen(100)*4e3
+   ntimes = [ntimes, times]
+   ntimes = ntimes[sort(ntimes)]
    
+   axis, yaxis = 1, yrange= [0.01, 13.6], /save, ytitle = 'Flux/F!d0!n', charsize = 1.3, ystyle=1
+   oplot, ntimes,  5*(Erf((ntimes - 1.2d5)/(8d4)) + 1) + 0.1, color=fsc_color(colors[2], /brewer);, linestyle=1
+
+
    
    ;; inreset = where (rad2 le rreset^2.)
 
@@ -224,6 +273,7 @@ PRO massloss_2, basename, fromsaved=fromsaved, ps=ps
    if(keyword_set(ps)) then begin
       device, /close
    endif
+
 
    save, /variables, filename='/Users/anjalitripathi/revised_mu_hiresmassloss_2_'+basename+'.sav'
   STOP
