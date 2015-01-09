@@ -2,12 +2,14 @@
 ;;   RETURN 2.*h*freq^3./(c^2.) / (exp(h*freq/k/temp)-1.)
 ;; END
 
-PRO simvoigt_valt, basename, fromsaved=fromsaved, plotobsc=plotobsc, plotxsec=plotxsec, ps=ps, cmap=cmap, plotaveobs=plotaveobs
+PRO simvoigt_valt, basename, fromsaved=fromsaved, plotobsc=plotobsc, plotxsec=plotxsec, ps=ps, cmap=cmap, plotaveobs=plotaveobs, coldens=coldens
   plotsym, 0, .4, /fill
   if (keyword_set(ps)) then begin
      !p.font=0
      !p.charsize=1.4
-     !p.charthick=5
+     !p.charthick=7
+     !x.charsize=1.3
+     !y.charsize=1.3
      !p.thick=8
      !x.thick=5
      !y.thick=5
@@ -50,7 +52,7 @@ endif else begin
    restore, basename+'_sv.sav'
 endelse
 
-x =x + max(x)
+;x =x + max(x)
 
   ;; Constants
    c = 2.99792458d10            ; Speed of light in cm/s from NIST CODATA - 9/2014
@@ -144,7 +146,8 @@ x =x + max(x)
    if (keyword_set(cmap)) then begin
 ;writefits, 'mytau3.fits', tau[*,*,findex]
       lcenter = where(abs(lambda-lambda0) eq min(abs(lambda-lambda0)))
-      vlines=[0,100,200, 400]
+      vlines=[0, 20, 25, 30,45]
+;100,200, 400]
       nuvlines = nu0*(1+vlines*1d5/c)
       findex = dblarr(n_elements(vlines))
       rp = 1.5e10
@@ -154,7 +157,7 @@ x =x + max(x)
 
       if (keyword_set(ps)) then begin
          set_plot, 'ps'
-         device, filen=basename+'_cmap.eps', xsize=9.5, ysize=3.5, /inches, /encapsulated
+         device, filen='/Users/anjalitripathi/Downloads/'+basename+'_cmap_spacing_rsun.eps', xsize=9.5, ysize=5, /inches, /encapsulated
          !p.thick=6
       endif else begin
          set_plot, 'x'
@@ -165,10 +168,67 @@ x =x + max(x)
          print, ff, ' v:', vlines[ff], ' index:', findex[ff]
                                 ;reform(y[0,*,0],n), yvector=reform(z[0,0,*],n),
          cgimage,1-etau[*,*,findex[ff]], xrange=[min(y), max(y)]/rp, yrange=[min(z),max(z)]/rp, PALETTE=palette, /keep_aspect, /axes, minvalue = 0, maxvalue=1, title=strtrim(vlines[ff],2)+'km/s', xtitle='Position [Rp]' ;, stretch='Log'
-         cgcontour, 1-etau[*,*,findex[ff]], levels=[1-exp(-1)], label=0, /onimage, c_thick=3
+;         cgcontour, 1-etau[*,*,findex[ff]], levels=[1-exp(-1)],
+;         label=0, /onimage, c_thick=3 ;Creat tau=1 contour
+         tvcircle, rsun/rp, 0, 0, linestyle=2, /data
       endfor
 ;ysize = 5
-;cgcolorbar, PALETTE=palette, range=[0,1], title='Obscuration', tlocation='top', tcharsize =.9
+cgcolorbar, PALETTE=palette, range=[0,1], title='Obscuration', tlocation='top', tcharsize =.9
+
+
+      if (keyword_set(ps)) then begin
+         device, /close
+      endif
+      stop
+   endif
+
+   ;Create channel map
+   if (keyword_set(coldens)) then begin
+      rp = 1.5e10
+      coldensx = dblarr(n,n)
+      coldensy = dblarr(n,n)
+      coldensz = dblarr(n,n)
+      for k = 0, n-1 do begin
+         for j = 0, n-1 do begin
+            coldensx[j,k] = total(n_H[*,j,k]*dx)
+            coldensy[j,k] = total(n_H[k,*,j]*dx)
+            coldensz[j,k] = total(n_H[j,k,*]*dx)
+         endfor
+      endfor
+
+;; openw,lun2,'coldensx.txt', /get_lun
+;; printf, lun2, coldensx,FORMAT='(G10.4)' 
+;; ;, coldensy, coldensz
+;; close, lun2
+;; free_lun, lun2
+;; stop
+
+      cgLoadCT, 9, /BREWER, RGB_TABLE=palette
+;      !p.multi=[0,3,1]
+!p.multi=0
+      if (keyword_set(ps)) then begin
+         set_plot, 'ps'
+         device, filen='/Users/anjalitripathi/Downloads/'+basename+'_coldens.eps', ysize=8.5, xsize=4, /inches, /encapsulated
+;         device, filen='/Users/anjalitripathi/Downloads/'+basename+'_coldenscolorbar.eps', ysize=8.5, xsize=4, /inches, /encapsulated
+         !p.thick=6
+      endif else begin
+         set_plot, 'x'
+      endelse
+
+      ;; plotsym, 0, 0.75, /fill
+      ;; plot, y/rp, coldensx, psym=8, /ylog, ysty=2, ytitle='X Column density', xtitle='Position (Rp)'
+      ;; plot, x/rp, coldensy, psym=8, /ylog, ysty=2, ytitle='Y Column density', xtitle='Position (Rp)'
+      ;; plot, x/rp, coldensz, psym=8, /ylog, ysty=2, ytitle='Z Column density', xtitle='Position (Rp)'
+
+
+
+      cgimage,bytscl(alog10(coldensx/max(coldensx))), xrange=[min(y), max(y)]/rp, yrange=[min(z),max(z)]/rp, PALETTE=palette, /keep_aspect, /axes,  title='Coldens integ along x', xtitle='Y [Rp]', ytitle='Z [Rp]' ;,  minvalue=-8, maxvalue=1;,stretch='Log'
+      cgimage,bytscl(alog10(coldensy/max(coldensy))), xrange=[min(y), max(y)]/rp, yrange=[min(z),max(z)]/rp, PALETTE=palette, /keep_aspect, /axes,  title='Coldens integ along y', xtitle='Z [Rp]', ytitle='X [Rp]' ;,  minvalue=-8, maxvalue=1
+      cgimage,bytscl(alog10(coldensz/max(coldensz))), xrange=[min(y), max(y)]/rp, yrange=[min(z),max(z)]/rp, PALETTE=palette, /keep_aspect, /axes,  title='Coldens integ along z', xtitle='X [Rp]', ytitle='Y [Rp]' ;,  minvalue=-8, maxvalue=1
+;cgcolorbar, PALETTE=palette, range=[1e-8,1], title='Normalized column density', tcharsize =.9, /ylog, yticks=0, /vertical
+
+;ysize = 5
+
 
 
       if (keyword_set(ps)) then begin
@@ -178,16 +238,20 @@ x =x + max(x)
    endif
 
 
+
    ;Total (averaged) obscuration
    if (keyword_set(plotaveobs)) then begin
       if (keyword_set(ps)) then begin
          set_plot, 'ps'
-         device, filen=basename+'_aveobs.eps', xsize=10.5, ysize=7.5, /inches, /encapsulated
+         device, filen=basename+'_aveobs3.eps', xsize=10.5, ysize=7.5, /inches, /encapsulated
       endif
 
       !p.multi=0
-      plot, lambda* 1d8, 1-etauave, ystyle =2, /ylog, xtitle='Wavelength [angstroms]', ytitle='Average obscured fraction', xstyle=1
+      plot, lambda* 1d8, 1-etauave, xstyle = 9, ystyle =2, /ylog, xtitle='Wavelength [angstroms]', ytitle='Average obscured fraction', xrange=[1213.44, 1217.90], xmargin=[12,3], ymargin= [5,5]
       oplot, ([lambda0,lambda0])*1d8, [1e-20,10], color=fsc_color("gray"), linestyle = 2
+      axis, xaxis = 1, xrange=-c*(lambda0*1d8/!x.crange -1.) / 1d5, xtitle = 'Velocity [km s!e-1!n]', xstyle=1 ;charsize = 1.3,
+;The velocity axis has been flipped 
+
 
       if (keyword_set(ps)) then begin
          device, /close
