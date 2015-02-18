@@ -83,6 +83,20 @@ if (plotheating lt 1) then begin
       oplot, xmdpt[levlimp]/rp, temp1[levlimp] ;,color=fsc_color("green")
       ;; plots, xmdpt[neg[sonic]]/rp, temp1[neg[sonic]], psym = 8
 
+      !p = p4  & !x= x4  & !y = y4
+;     levlimn = where(xmdpt lt -1.*(bounds[inlev+1]-dx))
+;     levlimp = where(xmdpt gt (bounds[inlev+1]-dx))
+      if (inlev eq 3) then begin
+         lt1 = where (xmdpt lt 1.*rp)
+         oplot, xmdpt[lt1]/rp, ifrac[lt1];, color=fsc_color("blue")
+         plots, xmdpt[tau1]/rp,ifrac[tau1], psym =7
+      endif else begin
+         oplot, xmdpt[levlimn]/rp, ifrac[levlimn]; , color=fsc_color("green")
+      endelse
+      
+
+
+
    endif else begin
       !p = p4  & !x= x4  & !y = y4
 ;     levlimn = where(xmdpt lt -1.*(bounds[inlev+1]-dx))
@@ -90,7 +104,8 @@ if (plotheating lt 1) then begin
 
       oplot, xmdpt[levlimn]/rp, ifrac[levlimn];, color=fsc_color("green")
       oplot, xmdpt[levlimp]/rp, ifrac[levlimp];, color=fsc_color("green")
-      print,'Im in here'
+
+
 
       !p = p5  & !x= x5  & !y = y5      
       oplot, xmdpt/rp, tau, color=fsc_color("red")
@@ -457,7 +472,7 @@ rcs = sqrt(kb/rmu * rtemp)*sqrt(5./3.)       ;Is neutral mu appropriate here?
          if (offa > 0) then begin
             device, filen='~/Downloads/velplot_a_'+string(fileno, format='(I04)')+'_4lev.eps', ysize=10.5, xsize=8.2, /inches, /encapsulated
          endif else begin
-            device, filen='~/Downloads/velplot_'+string(fileno, format='(I04)')+'_4lev.eps', ysize=10.5, xsize=8.2, /inches, /encapsulated
+            device, filen='~/Downloads/velplot_4panel'+string(fileno, format='(I04)')+'_4lev.eps', ysize=10.5, xsize=8.2, /inches, /encapsulated
          endelse
       endelse
   endif else begin
@@ -466,7 +481,7 @@ rcs = sqrt(kb/rmu * rtemp)*sqrt(5./3.)       ;Is neutral mu appropriate here?
       print, 'Adjust window size now'
       stop
   endelse
-   !p.multi=[0,1,3]
+   !p.multi=[0,1,4]
 
    ;Plot 1D density
    plot, xmdpt/rp, dmdpt, xsty = 1, ysty = 2, xtitle ='x/R!dp!n', ytitle='Density [g cm!e-3!n]', /ylog, yra=[7e-19, 2e-13], xmargin=[15,5], /nodata;, ycharsize = 1.1, xmargin=[5,5];, title='t/1e5s=0'+strtrim(ii-1,2)
@@ -520,7 +535,8 @@ rcs = sqrt(kb/rmu * rtemp)*sqrt(5./3.)       ;Is neutral mu appropriate here?
 
 
    ;Plot log T
-   plot, xmdpt/rp, temp1, xsty = 1, ysty = 1, xtitle ='x/R!dp!n', /ylog, yra=[9e2, 3e4], /nodata, xmargin=[15,5], ymargin=[8,2], ytickformat='(A1)';, ycharsize = 1.1 ;, linestyle = 4, yra=[9e2, 4e4]
+   plot, xmdpt/rp, temp1, xsty = 1, ysty = 1, xtitle ='x/R!dp!n', /ylog, yra=[9e2, 3e4], /nodata, xmargin=[15,5], ytickformat='(A1)';, ycharsize = 1.1 ;, linestyle = 4, yra=[9e2, 4e4]
+;, ymargin=[8,2]
    axis, yaxis=0, yrange=[9e2,3e4], /ylog, ysty=1, ytickv=[1e3, 1e4], ytickname=['10!u3!n','10!u4!n'], ytitle='Temperature [K]'
    minval = 10.^(!y.crange[0])+2e1
    maxval = 10.^(!y.crange[1])-1e3
@@ -534,6 +550,21 @@ rcs = sqrt(kb/rmu * rtemp)*sqrt(5./3.)       ;Is neutral mu appropriate here?
    plots, rx[rsonic], rtemp[rsonic], psym =8 ;, color=fsc_color("gray")
 
    p3 = !P & x3 = !X & y3 = !Y
+
+;Plot ifrac
+   plot, xmdpt/rp, ifrac, xsty =1, ysty =1, xtitle='x/R!dp!n', ytitle='Ionization fraction', yra=[0,1], /nodata, xmargin=[15,5], ymargin=[8,2] ;, title='t/1e5s=0'+strtrim(ii-1,2)
+   minval = (!y.crange[0])+5e-3
+   maxval = (!y.crange[1])-5e-3
+   polyfill, [-1,1,1,-1], [minval,minval, maxval, maxval], color=fsc_color("light gray"), /data
+   gt0 = where (xmdpt gt 0)
+   oplot, xmdpt[gt0]/rp, ifrac[gt0]
+   oplot, xmdpt[levlimn]/rp, ifrac[levlimn]
+ ;  oplot, xmdpt[levlimp]/rp, ifrac[levlimp]
+   oplot, rx, rnf, linestyle = 1
+;   plots, xmdpt[tau1]/rp, ifrac[tau1], psym = 7
+   plots, rx[rtau1], rnf[rtau1], psym = 7 ;, color=fsc_color("gray")
+   p4 = !P & x4 = !X & y4 = !Y
+
 
 
    for ilev = 1, 3 do begin
@@ -591,15 +622,15 @@ rcs = sqrt(kb/rmu * rtemp)*sqrt(5./3.)       ;Is neutral mu appropriate here?
       endelse
    endelse
    
-
+print, 'STOP, ifrac plotting has been moved into the 1st plot. Move it back to continue'
 ;Plot ifrac
-   plot, xmdpt/rp, ifrac, xsty =1, ysty =1, xtitle='x/R!dp!n', ytitle='Ionization fraction', yra=[0,1], /nodata, xmargin=[15,5] ;, title='t/1e5s=0'+strtrim(ii-1,2)
-   oplot, xmdpt[levlimn]/rp, ifrac[levlimn]
-   oplot, xmdpt[levlimp]/rp, ifrac[levlimp]
-   oplot, rx, rnf, linestyle = 1
-   plots, xmdpt[tau1]/rp, ifrac[tau1], psym = 7
-   plots, rx[rtau1], rnf[rtau1], psym = 7 ;, color=fsc_color("gray")
-   p4 = !P & x4 = !X & y4 = !Y
+;;    plot, xmdpt/rp, ifrac, xsty =1, ysty =1, xtitle='x/R!dp!n', ytitle='Ionization fraction', yra=[0,1], /nodata, xmargin=[15,5] ;, title='t/1e5s=0'+strtrim(ii-1,2)
+;;    oplot, xmdpt[levlimn]/rp, ifrac[levlimn]
+;;    oplot, xmdpt[levlimp]/rp, ifrac[levlimp]
+;;    oplot, rx, rnf, linestyle = 1
+;;    plots, xmdpt[tau1]/rp, ifrac[tau1], psym = 7
+;;    plots, rx[rtau1], rnf[rtau1], psym = 7 ;, color=fsc_color("gray")
+;;    p4 = !P & x4 = !X & y4 = !Y
 
 ;Plot tau
    plot, xmdpt/rp, tau, xsty = 1, ysty = 1, xtitle ='x/R!dp!n', ytitle='Optical depth', /ylog, yra=[8e-5, 1.5e4], xmargin=[15,5], ymargin=[8,2] ;
